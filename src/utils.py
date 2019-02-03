@@ -6,6 +6,10 @@ def create_goal_buffer(rows, columns):
     return [set(range(r * columns, (r + 1) * columns)) for r in range(rows)]
 
 
+def initialize_even_state(n):
+    return np.random.permutation(n)
+
+
 def initialize_random_state(n, rows, columns, bays):
     slots = rows * columns * bays
     x = np.random.choice(slots, size=n, replace=False)
@@ -35,15 +39,15 @@ def visualize_state(state, rows, columns, bays):
     return
 
 
-def find_available_containers(state, rows, columns, bays):
+def find_available_containers(state, total_stacks):
     available_containers = set()
-    total_columns = columns * bays
-    for c in range(total_columns):
-        mask, = np.where(np.logical_and(state % total_columns == c, state >= 0))  # select the containers in that column
-        if len(mask) == 0:
+    for s in range(total_stacks - 1):  # -1 to remove the ship stack
+        # select the containers in stack s
+        mask, = np.where(np.logical_and(state % (total_stacks - 1) == s, state >= 0))
+        if len(mask) == 0:  # if there are none, go to the next stack
             continue
         order = mask[np.argsort(state[mask])]  # order them from bottom to top
-        available_containers.add(order[-1])
+        available_containers.add(order[-1])  # add the one on the top of the stack to the available containers
     return available_containers
 
 
@@ -87,9 +91,9 @@ def find_new_state(previous_state, container, target_stack, total_stacks):
     return next_state
 
 
-def softmax(x):
-    x = x - np.max(x)
-    return np.exp(x) / np.sum(np.exp(x), axis=0)
+def softmax(x, temperature):
+    y = (x - np.max(x)) / temperature
+    return np.exp(y) / np.sum(np.exp(y), axis=0)
 
 
 def assign_reward(state):
