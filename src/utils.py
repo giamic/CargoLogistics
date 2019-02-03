@@ -6,10 +6,6 @@ def create_goal_buffer(rows, columns):
     return [set(range(r * columns, (r + 1) * columns)) for r in range(rows)]
 
 
-def initialize_empty_buffer(rows):
-    return [set() for _ in range(rows)]
-
-
 def initialize_random_state(n, rows, columns, bays):
     slots = rows * columns * bays
     x = np.random.choice(range(slots), size=n, replace=False)
@@ -37,22 +33,6 @@ def visualize_state(state, rows, columns, bays):
     plt.pcolormesh(grid, cmap='gray_r')
     plt.show()
     return
-
-
-def find_open_groups(state, rows, columns):
-    open_groups = []
-    buffered_containers, = np.where(state < 0)
-    if len(buffered_containers) == 0:
-        return [0]
-    filled = [len(np.where(i * columns <= buffered_containers < (i + 1) * columns)[0]) for i in range(rows)]
-    if filled[0] < columns:
-        open_groups.append(0)
-    for level in range(1, rows):
-        if filled[level] < filled[level - 1]:
-            open_groups.append(level)
-        elif filled[level] > filled[level - 1]:
-            raise AssertionError('The algorithm has tried to conquer gravity by putting a floating container!')
-    return open_groups
 
 
 def find_available_containers(state, rows, columns, bays):
@@ -90,15 +70,6 @@ def find_full_stacks(state, rows, columns, bays):
         if len(mask) == rows:
             full_stacks.add(c)
     return full_stacks
-
-
-def find_forbidden_moves(state, container, rows, columns, bays, b_goal):
-    if state[container] < 0:
-        return set(np.arange(-1, bays * columns))
-    forbidden_moves = find_full_stacks(state, rows, columns, bays)
-    if container not in find_needed_containers(state, rows, columns, b_goal):
-        forbidden_moves.add(-1)
-    return forbidden_moves
 
 
 def softmax(x):
