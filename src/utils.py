@@ -8,7 +8,7 @@ def create_goal_buffer(rows, columns):
 
 def initialize_random_state(n, rows, columns, bays):
     slots = rows * columns * bays
-    x = np.random.choice(range(slots), size=n, replace=False)
+    x = np.random.choice(slots, size=n, replace=False)
 
     def _gravity_fall(x, total_columns):
         for col in range(total_columns):  # column by column, bring all containers to the bottom
@@ -72,6 +72,27 @@ def find_full_stacks(state, rows, columns, bays):
     return full_stacks
 
 
+def find_destination(state, target_stack, total_stacks):
+    if target_stack == total_stacks - 1:
+        return -1
+    # select the containers in the target_stack
+    mask, = np.where(np.logical_and(state % total_stacks == target_stack, state >= 0))
+    height = len(mask)  # current height of the target_stack, before putting the new container
+    return height * (total_stacks - 1) + target_stack  # -1 because the ship stack needs to be removed
+
+
+def find_new_state(previous_state, container, target_stack, total_stacks):
+    next_state = previous_state.copy()
+    next_state[container] = find_destination(previous_state, target_stack, total_stacks)
+    return next_state
+
+
 def softmax(x):
     x = x - np.max(x)
     return np.exp(x) / np.sum(np.exp(x), axis=0)
+
+
+def assign_reward(state):
+    if np.all(state) == -1:
+        return 1
+    return 0
