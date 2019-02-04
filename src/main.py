@@ -11,7 +11,7 @@ from utils import create_goal_buffer, find_available_containers, find_needed_con
 DISCOUNT_FACTOR = 0.99
 LEARNING_RATE = 0.8
 T = 0.1
-EPISODES = 10000
+EPISODES = 500
 REPETITIONS = 5
 ROWS = 6  # the number of rows in each bay and in the buffer
 COLUMNS = 6  # the number of columns in each bay and in the buffer
@@ -80,15 +80,15 @@ for rep in range(REPETITIONS):
     steps = []
     q_table = dict()
     for e in range(EPISODES):
-        if e % 100 == 0:
+        if e % 10 == 0:
             print("Episode {} of {}".format(e + 1, EPISODES))
         n = 0
         # x0 = initialize_random_state(N_CONTAINERS, ROWS, COLUMNS, BAYS)
         x0 = X.copy()
         xs0 = str(x0)
         # visualize_state(x, ROWS, COLUMNS, BAYS)
-
-        while not np.all(x0, -1):
+        # choices = []
+        while not np.all(x0 == -1):
             c0 = np.random.choice(N_CONTAINERS, p=(softmax(q(x0, xs0), T)))
             s0 = np.random.choice(TOTAL_STACKS, p=(softmax(q(x0, xs0, c0), T)))
             if s0 != TOTAL_STACKS - 1:
@@ -99,6 +99,10 @@ for rep in range(REPETITIONS):
             q_table[xs0][c0, s0] += LEARNING_RATE * (
                         reward + DISCOUNT_FACTOR * np.max(q(x1, xs1)) - q_table[xs0][c0, s0])
             x0, xs0 = x1, xs1
+            # choices.append((c0, s0))
+            # print(x0, c0, s0)
+        # with open('../data/steps.txt', 'w') as f:
+        #     f.writelines(map(lambda x: str(x) + '\n', choices))
         steps.append(n)
     print("=========\n")
     steps_to_average.append(steps)
