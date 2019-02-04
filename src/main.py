@@ -11,17 +11,24 @@ from utils import create_goal_buffer, find_available_containers, find_needed_con
 DISCOUNT_FACTOR = 0.99
 LEARNING_RATE = 0.8
 T = 0.1
-EPISODES = 1000
-ROWS = 4  # the number of rows in each bay and in the buffer
-COLUMNS = 4  # the number of columns in each bay and in the buffer
+EPISODES = 10000
+REPETITIONS = 5
+ROWS = 6  # the number of rows in each bay and in the buffer
+COLUMNS = 6  # the number of columns in each bay and in the buffer
 BAYS = 2  # I assume containers con move from one bay to the other during removal
-N_CONTAINERS = 16
+N_CONTAINERS = 36
 TOTAL_STACKS = BAYS * COLUMNS + 1
 assert N_CONTAINERS <= ROWS * COLUMNS
 B_GOAL = create_goal_buffer(ROWS, COLUMNS)
 
-q_table = dict()
-X = initialize_even_state(N_CONTAINERS)
+# X = initialize_even_state(N_CONTAINERS)
+
+X = np.array([13, 18, 4, 17, 8, 10,
+              21, 3, 32, 12, 26, 24,
+              5, 28, 22, 33, 20, 30,
+              35, 31, 27, 19, 2, 7,
+              0, 34, 11, 1, 15, 9,
+              29, 23, 31, 6, 16, 14])
 
 
 def q(state, state_string, container=None, target_stack=None):
@@ -63,40 +70,46 @@ def q(state, state_string, container=None, target_stack=None):
 
 def update_q(x0, xs0, c0, s0, x1, xs1, c1, reward):
     q_table[xs0][c0, s0] = q(x0, xs0, c0, s0) + LEARNING_RATE * (
-                reward + DISCOUNT_FACTOR * np.max(q(x1, xs1, c1)) - q(x0, xs0, c0, s0))
+            reward + DISCOUNT_FACTOR * np.max(q(x1, xs1, c1)) - q(x0, xs0, c0, s0))
     return
 
 
-steps = []
-for e in range(EPISODES):
-    if e % 100 == 0:
-        print("Episode {} of {}".format(e + 1, EPISODES))
-    n = 0
-    x = X.copy()
-    xs = str(x)
-    # visualize_state(x, ROWS, COLUMNS, BAYS)
+steps_to_average = []
+for rep in range(REPETITIONS):
+    print("Repetition {} of {}".format(rep + 1, REPETITIONS))
+    steps = []
+    q_table = dict()
+    for e in range(EPISODES):
+        if e % 100 == 0:
+            print("Episode {} of {}".format(e + 1, EPISODES))
+        n = 0
+        # x0 = initialize_random_state(N_CONTAINERS, ROWS, COLUMNS, BAYS)
+        x0 = X.copy()
+        xs0 = str(x0)
+        # visualize_state(x, ROWS, COLUMNS, BAYS)
 
-    c = np.random.choice(N_CONTAINERS, p=(softmax(q(x, xs), T)))
-    s = np.random.choice(TOTAL_STACKS, p=(softmax(q(x, xs, c), T)))
+        while not np.all(x0, -1):
+            c0 = np.random.choice(N_CONTAINERS, p=(softmax(q(x0, xs0), T)))
+            s0 = np.random.choice(TOTAL_STACKS, p=(softmax(q(x0, xs0, c0), T)))
+            if s0 != TOTAL_STACKS - 1:
+                n += 1
+            x1 = find_new_state(x0, c0, s0, TOTAL_STACKS)
+            xs1 = str(x1)
+            reward = assign_reward(s0, TOTAL_STACKS)
+            q_table[xs0][c0, s0] += LEARNING_RATE * (
+                        reward + DISCOUNT_FACTOR * np.max(q(x1, xs1)) - q_table[xs0][c0, s0])
+            x0, xs0 = x1, xs1
+        steps.append(n)
+    print("=========\n")
+    steps_to_average.append(steps)
 
-    while not np.all(x, -1):
-        if s != TOTAL_STACKS - 1:
-            n += 1
-        x1 = find_new_state(x, c, s, TOTAL_STACKS)
-        xs1 = str(x1)
-        reward = assign_reward(x1)
-        c1 = np.random.choice(N_CONTAINERS, p=(softmax(q(x1, xs1), T)))
-        s1 = np.random.choice(TOTAL_STACKS, p=(softmax(q(x1, xs1, c1), T)))
-        update_q(x, xs, c, s, x1, xs1, c1, reward)
-        x, xs, c, s = x1, xs1, c1, s1
-    steps.append(n)
-
-plt.plot(steps)
+os.makedirs(os.path.join('..', 'data'), exist_ok=True)
+plt.plot(np.average(np.array(steps_to_average), axis=0) / N_CONTAINERS)
+plt.xlabel('number of trials')
+plt.ylabel('average number of removals per container')
+plt.title('average results over {} repetitions'.format(REPETITIONS))
+plt.savefig(os.path.join('..', 'data', 'plot_' + datetime.now().strftime('%F_%R') + '.pdf'))
 plt.show()
-plt.plot(np.average(np.array(steps).reshape((-1, 100)), axis=1))
-plt.show()
-
-# os.makedirs(os.path.join('..', 'data'), exist_ok=True)
 # output_file = os.path.join('..', 'data', 'qtable_' + datetime.now().strftime('%F_%R') + '.pkl')
 # with open(output_file, 'wb') as fp:
 #     pickle.dump(q_table, fp)

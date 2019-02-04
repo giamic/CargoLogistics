@@ -96,7 +96,7 @@ def softmax(x, temperature):
     return np.exp(y) / np.sum(np.exp(y), axis=0)
 
 
-def assign_reward(state):
-    if np.all(state) == -1:
+def assign_reward(target_stack, total_stacks):
+    if target_stack == total_stacks - 1:
         return 1
     return 0
