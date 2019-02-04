@@ -10,7 +10,7 @@ from utils import create_goal_buffer, find_available_containers, find_needed_con
 
 DISCOUNT_FACTOR = 0.99
 LEARNING_RATE = 0.8
-T = 0.1
+T = 1
 EPISODES = 500
 REPETITIONS = 5
 ROWS = 6  # the number of rows in each bay and in the buffer
@@ -68,24 +68,20 @@ def q(state, state_string, container=None, target_stack=None):
     return q_table[state_string][container, target_stack]
 
 
-def update_q(x0, xs0, c0, s0, x1, xs1, c1, reward):
-    q_table[xs0][c0, s0] = q(x0, xs0, c0, s0) + LEARNING_RATE * (
-            reward + DISCOUNT_FACTOR * np.max(q(x1, xs1, c1)) - q(x0, xs0, c0, s0))
-    return
-
-
 steps_to_average = []
 for rep in range(REPETITIONS):
     print("Repetition {} of {}".format(rep + 1, REPETITIONS))
     steps = []
     q_table = dict()
+    # initialize the value of the terminal state to a high value
+    q_table[(np.ones(N_CONTAINERS, dtype=int) * (-1)).tostring()] = np.ones((N_CONTAINERS, TOTAL_STACKS)) * 10
     for e in range(EPISODES):
         if e % 10 == 0:
             print("Episode {} of {}".format(e + 1, EPISODES))
         n = 0
         # x0 = initialize_random_state(N_CONTAINERS, ROWS, COLUMNS, BAYS)
         x0 = X.copy()
-        xs0 = str(x0)
+        xs0 = x0.tostring()
         # visualize_state(x, ROWS, COLUMNS, BAYS)
         # choices = []
         while not np.all(x0 == -1):
@@ -94,16 +90,21 @@ for rep in range(REPETITIONS):
             if s0 != TOTAL_STACKS - 1:
                 n += 1
             x1 = find_new_state(x0, c0, s0, TOTAL_STACKS)
-            xs1 = str(x1)
-            reward = assign_reward(s0, TOTAL_STACKS)
-            q_table[xs0][c0, s0] += LEARNING_RATE * (
-                        reward + DISCOUNT_FACTOR * np.max(q(x1, xs1)) - q_table[xs0][c0, s0])
+            xs1 = x1.tostring()
+            reward = assign_reward(s0, TOTAL_STACKS, ROWS)
+            delta = reward + DISCOUNT_FACTOR * np.max(q(x1, xs1)) - q_table[xs0][c0, s0]
+            if delta == -np.inf:
+                raise ValueError('infinite change in delta, something wrong')
+            q_table[xs0][c0, s0] += LEARNING_RATE * delta
             x0, xs0 = x1, xs1
+            if n > 2000:
+                print(c0, s0)
             # choices.append((c0, s0))
-            # print(x0, c0, s0)
+            # print(c0, s0)
         # with open('../data/steps.txt', 'w') as f:
         #     f.writelines(map(lambda x: str(x) + '\n', choices))
         steps.append(n)
+        print(n)
     print("=========\n")
     steps_to_average.append(steps)
 
