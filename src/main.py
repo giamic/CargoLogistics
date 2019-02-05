@@ -1,8 +1,5 @@
-from collections import defaultdict
-
 import matplotlib.pyplot as plt
 import numpy as np
-import pickle
 import os
 from datetime import datetime
 from utils import create_goal_buffer, find_available_containers, find_needed_containers, find_full_stacks, \
@@ -11,8 +8,8 @@ from utils import create_goal_buffer, find_available_containers, find_needed_con
 DISCOUNT_FACTOR = 0.99
 LEARNING_RATE = 0.8
 T = 1
-EPISODES = 500
-REPETITIONS = 5
+EPISODES = 5_000
+REPETITIONS = 1
 ROWS = 6  # the number of rows in each bay and in the buffer
 COLUMNS = 6  # the number of columns in each bay and in the buffer
 BAYS = 2  # I assume containers con move from one bay to the other during removal
@@ -21,8 +18,7 @@ TOTAL_STACKS = BAYS * COLUMNS + 1
 assert N_CONTAINERS <= ROWS * COLUMNS
 B_GOAL = create_goal_buffer(ROWS, COLUMNS)
 
-# X = initialize_even_state(N_CONTAINERS)
-
+# This is the state as taken from the paper, once the containers are renamed
 X = np.array([13, 18, 4, 17, 8, 10,
               21, 3, 32, 12, 26, 24,
               5, 28, 22, 33, 20, 30,
@@ -39,7 +35,7 @@ def q(state, state_string, container=None, target_stack=None):
     :param container:
     :param target_stack: -1 if you want to put it in the buffer
     :return: the q-value for the current state and action "move container c to target_stack s";
-        if the container is not specified, return sup_t Q(x, c, s) for all c
+        if the container is not specified, return sup_s Q(x, c, s) for all c
         if the target_stack is not specified, return Q(x, c, s) for all s
 
     """
@@ -58,6 +54,8 @@ def q(state, state_string, container=None, target_stack=None):
                     q_table[state_string][c, ts] = -np.inf
                 if c not in nc:  # if the container is not currently needed in the buffer, prevent that move
                     q_table[state_string][c, -1] = -np.inf
+                else:  # otherwise set the value to 1 (this is most probably a good move!)
+                    q_table[state_string][c, -1] = 1
 
     if container is None:
         return np.max(q_table[state_string], axis=1)
@@ -76,15 +74,15 @@ for rep in range(REPETITIONS):
     # initialize the value of the terminal state to a high value
     q_table[(np.ones(N_CONTAINERS, dtype=int) * (-1)).tostring()] = np.ones((N_CONTAINERS, TOTAL_STACKS)) * 10
     for e in range(EPISODES):
-        if e % 10 == 0:
+        if e % 100 == 0:
             print("Episode {} of {}".format(e + 1, EPISODES))
         n = 0
-        # x0 = initialize_random_state(N_CONTAINERS, ROWS, COLUMNS, BAYS)
-        x0 = X.copy()
+        x0 = initialize_random_state(N_CONTAINERS, ROWS, COLUMNS, BAYS)
+        # x0 = X.copy()
         xs0 = x0.tostring()
+        x1 = x0.copy()
         # visualize_state(x, ROWS, COLUMNS, BAYS)
-        # choices = []
-        while not np.all(x0 == -1):
+        while not np.all(x1 == -1):
             c0 = np.random.choice(N_CONTAINERS, p=(softmax(q(x0, xs0), T)))
             s0 = np.random.choice(TOTAL_STACKS, p=(softmax(q(x0, xs0, c0), T)))
             if s0 != TOTAL_STACKS - 1:
@@ -97,24 +95,18 @@ for rep in range(REPETITIONS):
                 raise ValueError('infinite change in delta, something wrong')
             q_table[xs0][c0, s0] += LEARNING_RATE * delta
             x0, xs0 = x1, xs1
-            if n > 2000:
-                print(c0, s0)
-            # choices.append((c0, s0))
-            # print(c0, s0)
-        # with open('../data/steps.txt', 'w') as f:
-        #     f.writelines(map(lambda x: str(x) + '\n', choices))
+            if e == 3999:
+                print(x0, c0, s0)
+
         steps.append(n)
-        print(n)
     print("=========\n")
     steps_to_average.append(steps)
 
 os.makedirs(os.path.join('..', 'data'), exist_ok=True)
-plt.plot(np.average(np.array(steps_to_average), axis=0) / N_CONTAINERS)
+plt.plot(np.average(np.array(steps_to_average), axis=0) / N_CONTAINERS, label='our_method')
+# plt.axhline(27, color='k', linestyle='--', label='baseline')  # simulated elsewhere
 plt.xlabel('number of trials')
 plt.ylabel('average number of removals per container')
 plt.title('average results over {} repetitions'.format(REPETITIONS))
 plt.savefig(os.path.join('..', 'data', 'plot_' + datetime.now().strftime('%F_%R') + '.pdf'))
 plt.show()
-# output_file = os.path.join('..', 'data', 'qtable_' + datetime.now().strftime('%F_%R') + '.pkl')
-# with open(output_file, 'wb') as fp:
-#     pickle.dump(q_table, fp)

@@ -97,6 +97,10 @@ def softmax(x, temperature):
     return np.exp(y) / np.sum(np.exp(y), axis=0)
 
 
+def equal_prob(x):
+    return (x > -np.inf) / np.sum(x > -np.inf)
+
+
 def assign_reward(target_stack, total_stacks, rows):
     if target_stack == total_stacks - 1:
         return rows
