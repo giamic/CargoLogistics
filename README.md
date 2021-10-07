@@ -1,5 +1,4 @@
 # Container removal algorithm
-## Candidate: Gianluca MICCHI
 
 The goal is to implement an algorithm for loading containers on a ship. The algorithm is defined in the paper "A Q-learning for Group-Based Plan of Container Transfer Scheduling" by Hirashim et al., **JSME International Journal Series C**, Vol. 49, No. 2, 2006.
 
